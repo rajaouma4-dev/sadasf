@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC DataChannel Only - Direct Server & Peer Chat</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --card-bg: rgba(22, 27, 46, 0.85);
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.35);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at top, #1e1b4b 0%, #0b0f19 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.5rem 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .header {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .header h1 {
+            font-size: 1.85rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a5b4fc, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge-bar {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.78rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            transition: all 0.3s ease;
+        }
+
+        .badge.active {
+            color: #34d399;
+            border-color: rgba(52, 211, 153, 0.4);
+            background: rgba(52, 211, 153, 0.12);
+        }
+
+        .badge.warn {
+            color: #fbbf24;
+            border-color: rgba(251, 191, 36, 0.4);
+            background: rgba(251, 191, 36, 0.12);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .banner {
+            padding: 0.75rem 1.2rem;
+            border-radius: 0.75rem;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            color: #c7d2fe;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.6rem;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.7rem 1.3rem;
+            border-radius: 0.6rem;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 14px var(--accent-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .chat-input-bar {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        /* Message feed */
+        .chat-feed {
+            height: 240px;
+            overflow-y: auto;
+            background: rgba(10, 15, 26, 0.9);
+            border-radius: 0.6rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            border: 1px solid var(--border);
+        }
+
+        .msg-bubble {
+            max-width: 80%;
+            padding: 0.65rem 0.95rem;
+            border-radius: 0.85rem;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-bubble.me {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: white;
+            border-bottom-right-radius: 0.2rem;
+        }
+
+        .msg-bubble.peer {
+            align-self: flex-start;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f1f5f9;
+            border-bottom-left-radius: 0.2rem;
+        }
+
+        .msg-meta {
+            font-size: 0.72rem;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Table view */
+        .db-table-wrapper {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+            background: rgba(10, 15, 26, 0.8);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(30, 41, 59, 0.7);
+            padding: 0.6rem 0.8rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 0.55rem 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .pill-rtc {
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+        }
+
+        .pill-db {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .log-box {
+            height: 120px;
+            overflow-y: auto;
+            background: rgba(10, 15, 26, 0.9);
+            border-radius: 0.6rem;
+            padding: 0.75rem 1rem;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            border: 1px solid var(--border);
+        }
+
+        .log-entry { line-height: 1.3; word-break: break-all; }
+        .log-info { color: #60a5fa; }
+        .log-success { color: #34d399; }
+        .log-warn { color: #fbbf24; }
+        .log-error { color: #f87171; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>100% WebRTC DataChannel (Zero HTTP APIs)</h1>
+        <div class="badge-bar">
+            <div id="wsBadge" class="badge"><span class="dot"></span>Signaling: Disconnected</div>
+            <div id="rtcBadge" class="badge"><span class="dot"></span>WebRTC DataChannel: Closed</div>
+            <div class="badge active"><span class="dot"></span>STUN: Google STUN</div>
+            <div class="badge active"><span class="dot"></span>DB: Turso Cloud (muta)</div>
+        </div>
+    </div>
+
+    <div class="banner">
+        <span>⚡ <b>Pure WebRTC:</b> SMS travels <b>ONLY</b> through <b>WebRTC DataChannel</b> to Server ➔ Server saves to DB ➔ Server delivers to User B via <b>WebRTC DataChannel</b>! (No HTTP/Fetch)</span>
+        <button id="openTabBtn" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Open 2nd Tab</button>
+    </div>
+
+    <div class="card">
+        <div class="grid-2">
+            <div class="input-group">
+                <label for="roomInput">Room Name</label>
+                <input type="text" id="roomInput" value="room-1">
+            </div>
+            <div class="input-group">
+                <label for="userIdInput">My User ID</label>
+                <input type="text" id="userIdInput" placeholder="Auto-generated">
+            </div>
+        </div>
+        <div class="btn-row">
+            <button id="connectBtn" class="btn-primary">Connect WebRTC DataChannel</button>
+            <button id="disconnectBtn" class="btn-secondary" disabled>Disconnect</button>
+        </div>
+    </div>
+
+    <!-- WebRTC DataChannel Chat Feed -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <label>Realtime WebRTC DataChannel Feed</label>
+            <span id="p2pStatusLabel" style="font-size: 0.8rem; color: var(--text-dim);">Awaiting DataChannel...</span>
+        </div>
+        <div id="chatFeed" class="chat-feed">
+            <div style="color: var(--text-dim); font-size: 0.85rem; text-align: center; margin-top: auto; margin-bottom: auto;">
+                Connect to open direct WebRTC DataChannel with Server.
+            </div>
+        </div>
+        <div class="chat-input-bar">
+            <input type="text" id="msgInput" placeholder="Connect to unlock WebRTC DataChannel..." disabled>
+            <button id="sendBtn" class="btn-primary" disabled>Send via WebRTC</button>
+        </div>
+    </div>
+
+    <!-- Live Records Table updated ONLY via WebRTC DataChannel -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <label>Messages Received via WebRTC DataChannel (<span id="dbCount">0</span>)</label>
+            <span class="pill pill-rtc">Delivered by WebRTC DataChannel</span>
+        </div>
+        <div class="db-table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#ID</th>
+                        <th style="width: 140px;">Sender ID</th>
+                        <th>SMS Content</th>
+                        <th style="width: 190px;">Protocol</th>
+                        <th style="width: 140px;">Time</th>
+                    </tr>
+                </thead>
+                <tbody id="dbTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">
+                            No messages received yet.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Live Logs -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <label>Connection & Event Logs</label>
+            <button id="clearLogBtn" class="btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.72rem;">Clear</button>
+        </div>
+        <div id="logBox" class="log-box"></div>
+    </div>
+</div>
+
+<script>
+    const STUN_CONFIG = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+    };
+
+    let ws = null;
+    let pc = null;
+    let dataChannel = null;
+    let myId = '';
+    let totalMessages = 0;
+
+    const logBox = document.getElementById('logBox');
+    const wsBadge = document.getElementById('wsBadge');
+    const rtcBadge = document.getElementById('rtcBadge');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const roomInput = document.getElementById('roomInput');
+    const userIdInput = document.getElementById('userIdInput');
+    const openTabBtn = document.getElementById('openTabBtn');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const chatFeed = document.getElementById('chatFeed');
+    const dbTableBody = document.getElementById('dbTableBody');
+    const dbCount = document.getElementById('dbCount');
+    const p2pStatusLabel = document.getElementById('p2pStatusLabel');
+
+    openTabBtn.addEventListener('click', () => {
+        window.open(window.location.href, '_blank');
+    });
+
+    clearLogBtn.addEventListener('click', () => {
+        logBox.innerHTML = '';
+    });
+
+    function log(message, type = 'info') {
+        const time = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.className = `log-entry log-${type}`;
+        div.textContent = `[${time}] ${message}`;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function appendMessage(sender, text, isMe, id = '', time = '') {
+        if (chatFeed.children.length === 1 && chatFeed.children[0].textContent.includes('Connect to open')) {
+            chatFeed.innerHTML = '';
+        }
+
+        const bubble = document.createElement('div');
+        bubble.className = `msg-bubble ${isMe ? 'me' : 'peer'}`;
+
+        const meta = document.createElement('div');
+        meta.className = 'msg-meta';
+        const idTag = id ? ` • #${id}` : '';
+        const timeTag = time ? ` • ${time}` : '';
+        meta.textContent = (isMe ? `You (${sender})` : `Peer: ${sender}`) + idTag + timeTag;
+
+        const body = document.createElement('div');
+        body.textContent = text;
+
+        bubble.appendChild(meta);
+        bubble.appendChild(body);
+
+        chatFeed.appendChild(bubble);
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+
+        addTableRow(id, sender, text, time);
+    }
+
+    function addTableRow(id, sender, text, time) {
+        if (dbTableBody.children.length === 1 && dbTableBody.children[0].textContent.includes('No messages received yet')) {
+            dbTableBody.innerHTML = '';
+        }
+
+        totalMessages++;
+        dbCount.textContent = totalMessages;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>#${id || totalMessages}</b></td>
+            <td><span style="color: #818cf8; font-weight: 600;">${sender}</span></td>
+            <td>${escapeHtml(text)}</td>
+            <td><span class="pill pill-rtc">WebRTC DataChannel</span></td>
+            <td style="color: var(--text-dim); font-size: 0.75rem;">${time || 'Just now'}</td>
+        `;
+        dbTableBody.prepend(tr);
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // ALL DATA ARRIVES EXCLUSIVELY VIA WEBRTC DATACHANNEL (ZERO HTTP!)
+    function setupDataChannelEvents(dc) {
+        dc.onopen = () => {
+            log('⚡ WebRTC DataChannel to Server is OPEN! Pure P2P/DataChannel active.', 'success');
+            rtcBadge.className = 'badge active';
+            rtcBadge.innerHTML = '<span class="dot"></span>DataChannel: Open';
+            p2pStatusLabel.innerHTML = '⚡ WebRTC DataChannel is OPEN with Server';
+            p2pStatusLabel.style.color = '#34d399';
+            msgInput.disabled = false;
+            sendBtn.disabled = false;
+            msgInput.placeholder = "Type message and hit Send over WebRTC DataChannel...";
+        };
+
+        dc.onclose = () => {
+            log('WebRTC DataChannel closed', 'warn');
+            rtcBadge.className = 'badge warn';
+            rtcBadge.innerHTML = '<span class="dot"></span>DataChannel: Closed';
+            p2pStatusLabel.innerHTML = 'WebRTC DataChannel Disconnected';
+            p2pStatusLabel.style.color = 'var(--text-dim)';
+            msgInput.disabled = true;
+            sendBtn.disabled = true;
+        };
+
+        // Incoming message from Server over WebRTC DataChannel
+        dc.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'sms-saved') {
+                    // Confirmation that server received and saved this SMS into database
+                    log(`[WebRTC DataChannel] Server saved SMS as #${data.id} in ${data.db}`, 'success');
+                    appendMessage(myId, data.text, true, data.id, data.created_at);
+                } else if (data.type === 'incoming-sms') {
+                    // USER B receives SMS delivered by Server over WebRTC DataChannel!
+                    log(`⚡ [WebRTC DataChannel SMS from User ${data.senderId}]: "${data.text}"`, 'success');
+                    appendMessage(data.senderId, data.text, false, data.id, data.created_at);
+                } else if (data.type === 'history') {
+                    // History received from server over WebRTC DataChannel!
+                    log(`[WebRTC DataChannel] Received ${data.messages.length} messages from Server DB`, 'info');
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(m => {
+                            addTableRow(m.id, m.sender_id, m.message, m.created_at);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing WebRTC DataChannel message:", e);
+            }
+        };
+    }
+
+    async function initWebRTC() {
+        log('Creating RTCPeerConnection with Google STUN...');
+        pc = new RTCPeerConnection(STUN_CONFIG);
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'client-candidate',
+                    candidate: event.candidate
+                }));
+            }
+        };
+
+        // Create the WebRTC DataChannel directly on the peer connection
+        dataChannel = pc.createDataChannel('chatChannel');
+        setupDataChannelEvents(dataChannel);
+
+        // WebRTC Offer for initial handshake
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        ws.send(JSON.stringify({
+            type: 'client-offer',
+            offer: pc.localDescription
+        }));
+    }
+
+    function connect() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+
+        log(`Connecting signaling websocket for initial WebRTC setup...`);
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            wsBadge.className = 'badge active';
+            wsBadge.innerHTML = '<span class="dot"></span>Signaling: Connected';
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            roomInput.disabled = true;
+            userIdInput.disabled = true;
+
+            const room = roomInput.value.trim() || 'room-1';
+            const user = userIdInput.value.trim();
+
+            ws.send(JSON.stringify({
+                type: 'join',
+                room: room,
+                userId: user || undefined
+            }));
+        };
+
+        ws.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+
+            switch (data.type) {
+                case 'joined':
+                    myId = data.userId;
+                    userIdInput.value = myId;
+                    log(`Joined room "${data.room}" as [${myId}]. Initializing WebRTC DataChannel...`, 'success');
+                    initWebRTC();
+                    break;
+
+                case 'server-answer':
+                    log('Received WebRTC Answer from Server. Connecting DataChannel...');
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    break;
+
+                case 'server-candidate':
+                    if (pc && data.candidate) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        } catch (e) {
+                            console.error('Candidate error:', e);
+                        }
+                    }
+                    break;
+            }
+        };
+
+        ws.onclose = () => {
+            wsBadge.className = 'badge';
+            wsBadge.innerHTML = '<span class="dot"></span>Signaling: Disconnected';
+            rtcBadge.className = 'badge';
+            rtcBadge.innerHTML = '<span class="dot"></span>DataChannel: Closed';
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            roomInput.disabled = false;
+            userIdInput.disabled = false;
+            msgInput.disabled = true;
+            sendBtn.disabled = true;
+            if (pc) { pc.close(); pc = null; }
+            log('Disconnected', 'warn');
+        };
+
+        ws.onerror = () => log('Signaling error', 'error');
+    }
+
+    function disconnect() {
+        if (ws) ws.close();
+        if (pc) pc.close();
+    }
+
+    // USER SENDS SMS OVER WEBRTC DATACHANNEL ONLY (NO HTTP!)
+    function sendMessage() {
+        const text = msgInput.value.trim();
+        if (!text) return;
+
+        if (dataChannel && dataChannel.readyState === 'open') {
+            // Strictly send through WebRTC DataChannel
+            dataChannel.send(JSON.stringify({
+                type: 'chat',
+                text: text
+            }));
+            msgInput.value = '';
+            log(`[Sent over WebRTC DataChannel to Server]: "${text}"`, 'info');
+        } else {
+            log('WebRTC DataChannel is not open yet.', 'warn');
+        }
+    }
+
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    sendBtn.addEventListener('click', sendMessage);
+    msgInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+</script>
+
+</body>
+</html>
