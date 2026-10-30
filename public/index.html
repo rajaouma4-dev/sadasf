@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC P2P DataChannel + Turso Cloud Chat</title>
+    <title>100% WebRTC DataChannel P2P Chat</title>
     <style>
         :root {
             --bg: #0b0f19;
@@ -318,12 +318,6 @@
             border: 1px solid rgba(99, 102, 241, 0.4);
         }
 
-        .pill-db {
-            background: rgba(16, 185, 129, 0.2);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.4);
-        }
-
         .log-box {
             height: 120px;
             overflow-y: auto;
@@ -349,17 +343,17 @@
 
 <div class="container">
     <div class="header">
-        <h1>WebRTC P2P DataChannel + Turso Cloud Database</h1>
+        <h1>100% WebRTC DataChannel (WebSocket = Connect Only)</h1>
         <div class="badge-bar">
-            <div id="wsBadge" class="badge"><span class="dot"></span>Signaling: Disconnected</div>
-            <div id="rtcBadge" class="badge warn"><span class="dot"></span>DataChannel: Need 2nd Peer Tab</div>
-            <div class="badge active"><span class="dot"></span>STUN: Google STUN</div>
-            <div class="badge active"><span class="dot"></span>DB: Turso Cloud (muta)</div>
+            <div id="wsBadge" class="badge"><span class="dot"></span>Socket Signaling: Disconnected</div>
+            <div id="rtcBadge" class="badge warn"><span class="dot"></span>WebRTC DataChannel: Waiting 2nd Tab</div>
+            <div class="badge active"><span class="dot"></span>STUN: Google STUN (19302)</div>
+            <div class="badge active"><span class="dot"></span>Messaging: 100% WebRTC DataChannel</div>
         </div>
     </div>
 
     <div class="banner">
-        <span>💡 <b>WebRTC Test Rule:</b> Open a <b>2nd browser tab</b> with the same Room Name (<code>room-1</code>). Message transmits directly via <b>WebRTC DataChannel</b> and saves in <b>Turso Cloud DB</b>!</span>
+        <span>💡 <b>P2P WebRTC Rule:</b> Open <b>2nd Tab</b> with Room (<code>room-1</code>). All SMS messages travel <b>ONLY</b> through <b>WebRTC DataChannel</b>! Socket only connects.</span>
         <button id="openTabBtn" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Open 2nd Tab</button>
     </div>
 
@@ -370,7 +364,7 @@
                 <input type="text" id="roomInput" value="room-1">
             </div>
             <div class="input-group">
-                <label for="userIdInput">My User ID</label>
+                <label for="userIdInput">My Peer ID</label>
                 <input type="text" id="userIdInput" placeholder="Auto-generated">
             </div>
         </div>
@@ -383,41 +377,41 @@
     <!-- WebRTC DataChannel Chat Feed -->
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <label>Live WebRTC DataChannel Feed</label>
-            <span id="p2pStatusLabel" style="font-size: 0.8rem; color: var(--text-dim);">Open 2nd tab to connect direct DataChannel...</span>
+            <label>Realtime WebRTC DataChannel Feed</label>
+            <span id="p2pStatusLabel" style="font-size: 0.8rem; color: var(--text-dim);">Awaiting 2nd tab to connect...</span>
         </div>
         <div id="chatFeed" class="chat-feed">
             <div style="color: var(--text-dim); font-size: 0.85rem; text-align: center; margin-top: auto; margin-bottom: auto;">
-                Connect both tabs to establish direct P2P DataChannel.
+                Connect both tabs to establish WebRTC DataChannel.
             </div>
         </div>
         <div class="chat-input-bar">
-            <input type="text" id="msgInput" placeholder="Wait for 2nd tab to connect DataChannel..." disabled>
-            <button id="sendBtn" class="btn-primary" disabled>Send via DataChannel</button>
+            <input type="text" id="msgInput" placeholder="Connect 2nd tab to unlock WebRTC DataChannel..." disabled>
+            <button id="sendBtn" class="btn-primary" disabled>Send via WebRTC</button>
         </div>
     </div>
 
-    <!-- Live Records Table -->
+    <!-- Live Records Table: Driven 100% via WebRTC DataChannel -->
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <label>Turso Cloud Database Records (<span id="dbCount">0</span>)</label>
-            <span class="pill pill-db">Saved in Turso Cloud</span>
+            <label>Messages Received via WebRTC DataChannel (<span id="msgCount">0</span>)</label>
+            <span class="pill pill-rtc">Delivered by WebRTC DataChannel</span>
         </div>
         <div class="db-table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 50px;">#ID</th>
+                        <th style="width: 50px;">#Seq</th>
                         <th style="width: 140px;">Sender ID</th>
                         <th>SMS Message</th>
-                        <th style="width: 190px;">Protocol</th>
+                        <th style="width: 190px;">Data Transport</th>
                         <th style="width: 140px;">Time</th>
                     </tr>
                 </thead>
                 <tbody id="dbTableBody">
                     <tr>
                         <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">
-                            No messages in database yet.
+                            No messages received yet.
                         </td>
                     </tr>
                 </tbody>
@@ -451,7 +445,7 @@
     let dataChannels = new Map();
     let candidateQueues = new Map();
     let myId = '';
-    let totalMessages = 0;
+    let messageCounter = 0;
 
     const logBox = document.getElementById('logBox');
     const wsBadge = document.getElementById('wsBadge');
@@ -466,7 +460,7 @@
     const clearLogBtn = document.getElementById('clearLogBtn');
     const chatFeed = document.getElementById('chatFeed');
     const dbTableBody = document.getElementById('dbTableBody');
-    const dbCount = document.getElementById('dbCount');
+    const msgCount = document.getElementById('msgCount');
     const p2pStatusLabel = document.getElementById('p2pStatusLabel');
 
     openTabBtn.addEventListener('click', () => {
@@ -486,7 +480,7 @@
         logBox.scrollTop = logBox.scrollHeight;
     }
 
-    function appendMessage(sender, text, isMe, id = '', time = '') {
+    function appendMessage(sender, text, isMe, time = '') {
         if (chatFeed.children.length === 1 && chatFeed.children[0].textContent.includes('Connect both tabs')) {
             chatFeed.innerHTML = '';
         }
@@ -496,9 +490,8 @@
 
         const meta = document.createElement('div');
         meta.className = 'msg-meta';
-        const idTag = id ? ` • #${id}` : '';
         const timeTag = time ? ` • ${time}` : '';
-        meta.textContent = (isMe ? `You (${sender})` : `Peer: ${sender}`) + idTag + timeTag;
+        meta.textContent = (isMe ? `You (${sender})` : `Peer: ${sender}`) + timeTag;
 
         const body = document.createElement('div');
         body.textContent = text;
@@ -508,19 +501,21 @@
 
         chatFeed.appendChild(bubble);
         chatFeed.scrollTop = chatFeed.scrollHeight;
+
+        addTableRow(sender, text, time);
     }
 
-    function addTableRow(id, sender, text, time) {
-        if (dbTableBody.children.length === 1 && dbTableBody.children[0].textContent.includes('No messages in database yet')) {
+    function addTableRow(sender, text, time) {
+        if (dbTableBody.children.length === 1 && dbTableBody.children[0].textContent.includes('No messages received yet')) {
             dbTableBody.innerHTML = '';
         }
 
-        totalMessages++;
-        dbCount.textContent = totalMessages;
+        messageCounter++;
+        msgCount.textContent = messageCounter;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><b>#${id || totalMessages}</b></td>
+            <td><b>#${messageCounter}</b></td>
             <td><span style="color: #818cf8; font-weight: 600;">${sender}</span></td>
             <td>${escapeHtml(text)}</td>
             <td><span class="pill pill-rtc">WebRTC DataChannel</span></td>
@@ -542,19 +537,19 @@
         if (openCount > 0) {
             rtcBadge.className = 'badge active';
             rtcBadge.innerHTML = `<span class="dot"></span>DataChannel: Open (${openCount} peer)`;
-            p2pStatusLabel.innerHTML = `⚡ WebRTC DataChannel Active with ${openCount} Peer(s)`;
+            p2pStatusLabel.innerHTML = `⚡ WebRTC DataChannel Active (${openCount} Peer Connected)`;
             p2pStatusLabel.style.color = '#34d399';
             msgInput.disabled = false;
             sendBtn.disabled = false;
-            msgInput.placeholder = "Type message and hit Send over DataChannel...";
+            msgInput.placeholder = "Type message and hit Send over WebRTC DataChannel...";
         } else {
             rtcBadge.className = 'badge warn';
-            rtcBadge.innerHTML = '<span class="dot"></span>DataChannel: Need 2nd Peer Tab';
+            rtcBadge.innerHTML = '<span class="dot"></span>DataChannel: Waiting 2nd Tab';
             p2pStatusLabel.innerHTML = 'Waiting for 2nd tab to connect to room...';
             p2pStatusLabel.style.color = 'var(--text-dim)';
             msgInput.disabled = true;
             sendBtn.disabled = true;
-            msgInput.placeholder = "Wait for 2nd tab to connect DataChannel...";
+            msgInput.placeholder = "Connect 2nd tab to unlock WebRTC DataChannel...";
         }
     }
 
@@ -602,11 +597,15 @@
         return pc;
     }
 
+    // -------------------------------------------------------------
+    // WEBRTC DATACHANNEL HANDLERS: ALL SMS MESSAGING HAPPENS HERE!
+    // ZERO WEBSOCKET OR HTTP TOUCHES THIS!
+    // -------------------------------------------------------------
     function setupDataChannel(peerId, dc) {
         dataChannels.set(peerId, dc);
 
         dc.onopen = () => {
-            log(`⚡ WebRTC DataChannel is OPEN with [${peerId}]! P2P Ready!`, 'success');
+            log(`⚡ WebRTC DataChannel is OPEN with [${peerId}]! 100% P2P Active!`, 'success');
             updateRTCStatus();
         };
 
@@ -616,12 +615,12 @@
             updateRTCStatus();
         };
 
-        // SMS RECEIVED OVER WEBRTC DATACHANNEL DIRECTLY
+        // Incoming SMS from Peer over WebRTC DataChannel:
         dc.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
                 log(`⚡ [WebRTC DataChannel SMS from ${data.senderId}]: "${data.text}"`, 'success');
-                appendMessage(data.senderId, data.text, false, data.id, data.time);
+                appendMessage(data.senderId, data.text, false, data.time);
             } catch (e) {
                 appendMessage(peerId, event.data, false);
             }
@@ -640,16 +639,19 @@
         }
     }
 
+    // -------------------------------------------------------------
+    // WEBSOCKET: USED ONLY TO CONNECT (SIGNALING). ZERO DATA!
+    // -------------------------------------------------------------
     function connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}`;
 
-        log(`Connecting signaling websocket at ${wsUrl}...`);
+        log(`Connecting signaling websocket for initial P2P setup...`);
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
             wsBadge.className = 'badge active';
-            wsBadge.innerHTML = '<span class="dot"></span>Signaling: Connected';
+            wsBadge.innerHTML = '<span class="dot"></span>Socket Signaling: Connected';
             connectBtn.disabled = true;
             disconnectBtn.disabled = false;
             roomInput.disabled = true;
@@ -672,22 +674,23 @@
                 case 'joined':
                     myId = data.userId;
                     userIdInput.value = myId;
-                    log(`Joined room "${data.room}" as [${myId}]`, 'success');
+                    log(`Joined room "${data.room}" as [${myId}]. Socket setup complete.`, 'success');
 
                     if (data.peers && data.peers.length > 0) {
-                        log(`Found ${data.peers.length} active peer(s). Starting P2P WebRTC negotiation...`, 'info');
+                        log(`Found ${data.peers.length} active peer(s). Establishing WebRTC DataChannel...`, 'info');
                         data.peers.forEach(peerId => {
                             createPeerConnection(peerId, true);
                         });
                     } else {
-                        log('Waiting for 2nd tab/peer to connect to this room...', 'warn');
+                        log('Waiting for 2nd tab to connect to this room...', 'warn');
                     }
                     break;
 
                 case 'peer-joined':
-                    log(`New peer [${data.peerId}] entered the room.`, 'info');
+                    log(`New peer [${data.peerId}] connected. Initiating WebRTC...`, 'info');
                     break;
 
+                // Only signaling messages (SDP & ICE) go through WebSocket
                 case 'signal': {
                     const { sender, signal } = data;
                     let pc = peerConnections.get(sender);
@@ -719,18 +722,6 @@
                     break;
                 }
 
-                case 'db-ack':
-                    // Turso DB saved confirmation with DB ID
-                    log(`[Turso Cloud DB] Saved SMS #${data.id} from [${data.senderId}]`, 'success');
-                    addTableRow(data.id, data.senderId, data.text, data.created_at);
-                    break;
-
-                case 'history':
-                    if (data.messages && data.messages.length > 0) {
-                        data.messages.forEach(m => addTableRow(m.id, m.sender_id, m.message, m.created_at));
-                    }
-                    break;
-
                 case 'peer-left':
                     log(`Peer [${data.peerId}] left the room`, 'warn');
                     if (peerConnections.has(data.peerId)) {
@@ -750,7 +741,7 @@
 
         ws.onclose = () => {
             wsBadge.className = 'badge';
-            wsBadge.innerHTML = '<span class="dot"></span>Signaling: Disconnected';
+            wsBadge.innerHTML = '<span class="dot"></span>Socket Signaling: Disconnected';
             rtcBadge.className = 'badge warn';
             rtcBadge.innerHTML = '<span class="dot"></span>DataChannel: Closed';
             connectBtn.disabled = false;
@@ -758,7 +749,7 @@
             roomInput.disabled = false;
             userIdInput.disabled = false;
             cleanRTC();
-            log('Disconnected from signaling server', 'warn');
+            log('Disconnected', 'warn');
         };
 
         ws.onerror = () => log('Signaling error', 'error');
@@ -778,8 +769,10 @@
         cleanRTC();
     }
 
-    // 1. Send SMS directly over WebRTC DataChannel to Peer
-    // 2. Server saves to Turso Cloud DB
+    // -------------------------------------------------------------
+    // SEND SMS: STRICTLY 100% OVER WEBRTC DATACHANNEL
+    // ZERO WEBSOCKET USED FOR SENDING TEXT OR CHAT!
+    // -------------------------------------------------------------
     function sendMessage() {
         const text = msgInput.value.trim();
         if (!text) return;
@@ -800,17 +793,9 @@
         });
 
         if (sentCount > 0) {
-            appendMessage(myId, text, true, '', now);
+            appendMessage(myId, text, true, now);
             msgInput.value = '';
-            log(`[Sent via WebRTC DataChannel to ${sentCount} peer(s)]: "${text}"`, 'info');
-
-            // Tell server to save in Turso DB
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'save-db-sms',
-                    text: text
-                }));
-            }
+            log(`[Sent 100% via WebRTC DataChannel to ${sentCount} peer(s)]: "${text}"`, 'info');
         } else {
             log('No open WebRTC DataChannels available. Please connect 2nd tab.', 'warn');
         }
